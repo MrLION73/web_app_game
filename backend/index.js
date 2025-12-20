@@ -44,45 +44,39 @@ db.serialize(() => {
 // ==========================
 app.post("/login", (req, res) => {
   const { name, browserId } = req.body;
-  console.log(req.body);
 
-  if (!name || !browserId) {
-    return res.status(400).json({ error: "name et browserId requis" });
+  if (!browserId) {
+    return res.status(400).json({ error: "browserId requis" });
   }
 
-  // Vérifier si ce navigateur est déjà connecté
   db.get(
     "SELECT id, name FROM players WHERE browserId = ?",
     [browserId],
     (err, row) => {
-      if (err) {
-        console.error("Erreur SELECT :", err);
-        return res.status(500).json({ error: "DB error" });
-      }
+      if (err) return res.status(500).json({ error: "DB error" });
 
-      // Déjà connecté → on renvoie l'existant
+      // Déjà connecté → auto-login
       if (row) {
-        console.log(`Reconnect navigateur ${browserId} (${row.name})`);
         return res.json({ id: row.id, name: row.name });
       }
 
-      // Nouveau joueur
+      // Nouveau joueur → name requis
+      if (!name) {
+        return res.status(400).json({ error: "Nom requis pour un nouveau joueur" });
+      }
+
       db.run(
         "INSERT INTO players (name, browserId) VALUES (?, ?)",
         [name, browserId],
         function (err) {
-          if (err) {
-            console.error("Erreur INSERT :", err);
-            return res.status(500).json({ error: "DB error" });
-          }
-
-          console.log(`Joueur connecté : ${name} (ID ${this.lastID})`);
+          if (err) return res.status(500).json({ error: "DB error" });
           res.json({ id: this.lastID, name });
         }
       );
     }
   );
 });
+
 
 // ==========================
 // LOGOUT

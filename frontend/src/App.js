@@ -10,7 +10,7 @@ function App() {
   const [playerId, setPlayerId] = useState(null);
   const [logged, setLogged] = useState(false);
 
-  const [browserId, setBrowserId] = useState(() => {
+  const [browserId] = useState(() => {
     let id = localStorage.getItem("browserId");
     if (!id) {
       id = generateId();
@@ -18,6 +18,33 @@ function App() {
     }
     return id;
   });
+  useEffect(() => {
+    const autoLogin = async () => {
+      if (!browserId) return;
+  
+      try {
+        const res = await fetch("http://localhost:4000/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: "",        // le backend ignorera si browserId existe
+            browserId
+          })
+        });
+  
+        const data = await res.json();
+        if (!res.ok) return;
+  
+        setPlayerId(data.id);
+        setName(data.name);
+        setLogged(true);
+        loadPlayers();
+      } catch (err) {
+        console.error("Auto-login échoué", err);
+      }
+    };
+    autoLogin();
+  }, [browserId]);
   // Connexion
   const login = async () => {
     if (!name) return alert("Entrez un pseudo !");
