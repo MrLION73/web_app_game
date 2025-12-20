@@ -6,32 +6,131 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ==========================
 // Base SQLite
-const db = new sqlite3.Database("./players.db");
+// ==========================
+const db = new sqlite3.Database("./players.db", (err) => {
+  if (err) {
+    console.error("Erreur ouverture DB :", err.message);
+  } else {
+    console.log("Base SQLite ouverte");
+  }
+});
 
-// Création de la table
-db.run(`
-  CREATE TABLE IF NOT EXISTS players (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT
-  )
-`);
+// ==========================
+// Création propre de la table
+// ==========================
+db.serialize(() => {
+  db.run(`
+    CREATE TABLE IF NOT EXISTS players (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      browserId TEXT NOT NULL UNIQUE
+    )
+  `);
+});
 
-// Ajouter un joueur
+// ==========================
+// (OPTIONNEL) Nettoyage au démarrage
+// Décommente si tu veux vider la table
+// à chaque reboot du Raspberry
+// ==========================
+// db.run("DELETE FROM players", () => {
+//   console.log("Table players nettoyée au démarrage");
+// });
+
+// ==========================
+// LOGIN
+// ==========================
 app.post("/login", (req, res) => {
-  const { name } = req.body;
-  db.run("INSERT INTO players (name) VALUES (?)", [name], () => {
+  const { name, browserId } = req.body;
+  console.log(req.body);
+
+  if (!name || !browserId) {
+    return res.status(400).json({ error: "name et browserId requis" });
+  }
+
+  // Vérifier si ce navigateur est déjà connecté
+  db.get(
+    "SELECT id, name FROM players WHERE browserId = ?",
+    [browserId],
+    (err, row) => {
+      if (err) {
+        console.error("Erreur SELECT :", err);
+        return res.status(500).json({ error: "DB error" });
+      }
+
+      // Déjà connecté → on renvoie l'existant
+      if (row) {
+        console.log(`Reconnect navigateur ${browserId} (${row.name})`);
+        return res.json({ id: row.id, name: row.name });
+      }
+
+      // Nouveau joueur
+      db.run(
+        "INSERT INTO players (name, browserId) VALUES (?, ?)",
+        [name, browserId],
+        function (err) {
+          if (err) {
+            console.error("Erreur INSERT :", err);
+            return res.status(500).json({ error: "DB error" });
+          }
+
+          console.log(`Joueur connecté : ${name} (ID ${this.lastID})`);
+          res.json({ id: this.lastID, name });
+        }
+      );
+    }
+  );
+});
+
+// ==========================
+// LOGOUT
+// ==========================
+app.delete("/logout/:id", (req, res) => {
+  const { id } = req.params;
+
+  db.run("DELETE FROM players WHERE id = ?", [id], (err) => {
+    if (err) {
+      console.error("Erreur DELETE :", err);
+      return res.sendStatus(500);
+    }
+    console.log(`Joueur déconnecté ID ${id}`);
     res.sendStatus(200);
   });
 });
 
-// Récupérer les joueurs
+// ==========================
+// LISTE DES JOUEURS
+// ==========================
 app.get("/players", (req, res) => {
-  db.all("SELECT name FROM players", (err, rows) => {
+  db.all("SELECT id, name FROM players", (err, rows) => {
+    if (err) {
+      console.error("Erreur SELECT :", err);
+      return res.status(500).json({ error: "DB error" });
+    }
     res.json(rows);
   });
 });
 
-app.listen(4000, () => {
-  console.log("Backend lancé sur http://localhost:4000");
+// ==========================
+// RESET COMPLET (optionnel)
+// ==========================
+app.post("/reset", (req, res) => {
+  db.run("DELETE FROM players", (err) => {
+    if (err) {
+      console.error("Erreur RESET :", err);
+      return res.sendStatus(500);
+    }
+    console.log("Table players vidée manuellement");
+    res.sendStatus(200);
+  });
+});
+
+// ==========================
+// Démarrage serveur
+// ==========================
+const PORT = 4000;
+app.listen(PORT, () => {
+  console.log(`Backend lancé sur http://localhost:${PORT}`);
 });
