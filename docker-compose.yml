@@ -1,0 +1,21 @@
+version: "3"
+services:
+  backend:
+    image: node:24-alpine
+    working_dir: /usr/src/app
+    ports:
+      - "4000:4000"
+    volumes:
+      - ./backend:/usr/src/app
+      - /usr/src/app/node_modules
+    command : sh -c "npm install && node index.js"
+
+  frontend:
+    image: node:24-alpine
+    working_dir: /usr/src/app
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/usr/src/app
+      - /usr/src/app/node_modules
+    command: sh -c "npm install && npm start"
