@@ -1,10 +1,14 @@
 import { useState, useEffect } from "react";
+//import Lobby from "./Lobby";
+//import Quiz from "./Quiz";
 
 function generateId() {
   return '_' + Math.random().toString(36).substr(2, 9);
 }
 
 function App() {
+  const backendUrl = process.env.REACT_APP_BACKEND_URL;
+  const [startedAt, setStartedAt] = useState(null);
   const [name, setName] = useState("");
   const [players, setPlayers] = useState([]);
   const [playerId, setPlayerId] = useState(null);
@@ -23,7 +27,7 @@ function App() {
       if (!browserId) return;
   
       try {
-        const res = await fetch("http://localhost:4000/login", {
+        const res = await fetch(`${backendUrl}/login`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -50,7 +54,7 @@ function App() {
     if (!name) return alert("Entrez un pseudo !");
 
     try {
-      const res = await fetch("http://localhost:4000/login", {
+      const res = await fetch(`${backendUrl}/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, browserId})
@@ -70,7 +74,7 @@ function App() {
   // Charger la liste des joueurs
   const loadPlayers = async () => {
     try {
-      const res = await fetch("http://localhost:4000/players");
+      const res = await fetch(`${backendUrl}/players`);
       if (!res.ok) throw new Error("Erreur serveur");
       const data = await res.json();
       setPlayers(data);
@@ -83,7 +87,7 @@ function App() {
   useEffect(() => {
     const handleUnload = () => {
       if (playerId) {
-        navigator.sendBeacon(`http://localhost:4000/logout/${playerId}`);
+        navigator.sendBeacon(`${backendUrl}/logout/${playerId}`);
       }
     };
     window.addEventListener("beforeunload", handleUnload);
@@ -102,7 +106,7 @@ function App() {
   const logout = async () => {
     if (!playerId) return;
     try {
-      await fetch(`http://localhost:4000/logout/${playerId}`, { method: "DELETE" });
+      await fetch(`${backendUrl}/logout/${playerId}`, { method: "DELETE" });
       setLogged(false);
       setPlayerId(null);
       setPlayers([]);
@@ -142,6 +146,10 @@ function App() {
       <button onClick={logout} style={{ marginTop: "20px" }}>Se déconnecter</button>
     </div>
   );
+  //if (!startedAt) {
+  //  return <Lobby onGameStart={setStartedAt} />;
+  //}
+  //return <Quiz startedAt={startedAt} />;
 }
 
 export default App;

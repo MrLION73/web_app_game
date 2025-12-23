@@ -28,7 +28,22 @@ db.serialize(() => {
       browserId TEXT NOT NULL UNIQUE
     )
   `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS game (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      state TEXT NOT NULL,
+      startedAt INTEGER
+    )
+  `);
+
+  // Initialisation de l'état du jeu
+  db.run(`
+    INSERT OR IGNORE INTO game (id, state)
+    VALUES (1, 'waiting')
+  `);
 });
+
 
 // ==========================
 // (OPTIONNEL) Nettoyage au démarrage
@@ -107,6 +122,47 @@ app.get("/players", (req, res) => {
   });
 });
 
+app.get("/game", (req, res) => {
+  db.get("SELECT state, startedAt FROM game WHERE id = 1", (err, row) => {
+    if (err) {
+      console.error("Erreur GAME GET :", err);
+      return res.sendStatus(500);
+    }
+    res.json({"toto": "tata"});
+  });
+});
+
+app.post("/game/start", (req, res) => {
+  const startedAt = Date.now();
+
+  db.run(
+    "UPDATE game SET state = 'started', startedAt = ? WHERE id = 1",
+    [startedAt],
+    (err) => {
+      if (err) {
+        console.error("Erreur GAME START :", err);
+        return res.sendStatus(500);
+      }
+      console.log("Jeu lancé");
+      res.sendStatus(200);
+    }
+  );
+});
+
+app.post("/game/reset", (req, res) => {
+  db.run(
+    "UPDATE game SET state = 'waiting', startedAt = NULL WHERE id = 1",
+    (err) => {
+      if (err) {
+        console.error("Erreur GAME RESET :", err);
+        return res.sendStatus(500);
+      }
+      console.log("Jeu réinitialisé");
+      res.sendStatus(200);
+    }
+  );
+});
+
 // ==========================
 // RESET COMPLET (optionnel)
 // ==========================
@@ -126,5 +182,5 @@ app.post("/reset", (req, res) => {
 // ==========================
 const PORT = 4000;
 app.listen(PORT, () => {
-  console.log(`Backend lancé sur http://localhost:${PORT}`);
+  console.log(`Backend lancé sur le port ${PORT}`);
 });
